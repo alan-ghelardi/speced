@@ -1,6 +1,5 @@
 (ns speced.core
   (:require [clojure.pprint :as pprint]
-            [clojure.spec.test.alpha :as spec.test]
             [clojure.set :as set]
             [clojure.spec.alpha :as s]
             [clojure.spec.test.alpha :as spec.test]
@@ -29,17 +28,33 @@
        (str alias "/" fn-name)
        fn-name))))
 
-(defn- args-and-ret
-  "Extracts function's arguments and the return value from the result
-  map."
+(defn- shrunk-data
+  "Extracts values from the :shrunk key of the result map."
   [result]
   (-> result
       ::test.check/ret
       :shrunk
       :result
-      ex-data
-      (select-keys [::spec.test/args ::spec.test/val])
-      (set/rename-keys {::spec.test/args :args ::spec.test/val :ret})))
+      ex-data))
+
+(defn- return-val
+  "Extracts the return value from the result map."
+  [result]
+  (->> result
+       shrunk-data
+       ::s/problems
+       (some (fn [problem]
+               (cond
+                 (= [:fn] (:path problem))  (-> problem :val :ret)
+                 (= [:ret] (:path problem)) (:val problem))))))
+
+(defn- args-and-ret
+  "Extracts function's arguments and the return value from the result
+  map."
+  [result]
+  (let [{:keys [::spec.test/args]} (shrunk-data result)]
+    {:args args
+     :ret  (return-val result)}))
 
 (defn- describe-fn-call
   "Returns a form that represents the shrunk call of the function under
