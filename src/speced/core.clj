@@ -1,5 +1,6 @@
 (ns speced.core
   (:require [clojure.pprint :as pprint]
+            [clojure.spec.test.alpha :as spec.test]
             [clojure.set :as set]
             [clojure.spec.alpha :as s]
             [clojure.spec.test.alpha :as spec.test]
@@ -14,7 +15,6 @@
   *check-options* nil)
 
 (defn- alias-for-ns [ns]
-  #nu/tap *check-options*
   (some-> *check-options*
           :test-ns
           ns-aliases
@@ -29,28 +29,31 @@
        (str alias "/" fn-name)
        fn-name))))
 
-(defn- describe-fn-call [{:keys [failure sym]}]
-  (->> failure
-       ex-data
-       ::s/problems
-       first
-       :val
-       :args
-       vals
-       (cons (aliased-fn-symbol sym))))
+(defn- args-and-ret
+  "Extracts function's arguments and the return value from the result
+  map."
+  [result]
+  (-> result
+      ::test.check/ret
+      :shrunk
+      :result
+      ex-data
+      (select-keys [::spec.test/args ::spec.test/val])
+      (set/rename-keys {::spec.test/args :args ::spec.test/val :ret})))
 
-(defn- args-and-ret [{:keys [failure]}]
-  (->> failure
-       ex-data
-       ::s/problems
-       first
-       :val))
+(defn- describe-fn-call
+  "Returns a form that represents the shrunk call of the function under
+  test."
+  [{:keys [sym] :as result}]
+  (->> result
+       args-and-ret
+       :args
+       (cons (aliased-fn-symbol sym))))
 
 (defn- describe-actual [{:keys [failure ::test.check/ret] :as result}]
   (let [{:keys [failed-after-ms seed]} ret
         {:keys [args ret]}             (args-and-ret result)]
     {:fail         (list '= ret (describe-fn-call result))
-     :named-args   args
      :return-value ret
      :failed-after (str failed-after-ms "ms")
      :seed         seed
@@ -113,6 +116,6 @@
 
 (defmethod clojure.test/assert-expr 'conforms? [message form]
   `(let [fn-symbol# ~(last form)
-        result# (check fn-symbol#)]
-    (clojure.test/do-report (assoc (describe-result result#)
-                                   :message ~message))))
+         result#    (check fn-symbol#)]
+     (clojure.test/do-report (assoc (describe-result result#)
+                                    :message ~message))))
