@@ -31,4 +31,4 @@
   :args (s/cat :person string?)
   :ret string?)
 
-(speced/gen-test people/get-person)
+(speced/gen-test ranged-rand)

@@ -48,6 +48,25 @@
                  (= [:fn] (:path problem))  (-> problem :val :ret)
                  (= [:ret] (:path problem)) (:val problem))))))
 
+(defn- find-cat [args]
+  (letfn [(walk [form]
+            (if (and (seq? form) (= 'cat (first form)))
+              form
+              (when (seq? form)
+                (some walk form))))]
+    (walk args)))
+
+(defn- named-arguments [fspec arg-values]
+  (let [names (some->> (s/describe fspec)
+                       rest
+                       (apply hash-map)
+                       :args
+                       find-cat
+                       rest
+                       (apply hash-map)
+                       keys)]
+    (zipmap names arg-values)))
+
 (defn- args-and-ret
   "Extracts function's arguments and the return value from the result
   map."
@@ -65,10 +84,11 @@
        :args
        (cons (aliased-fn-symbol sym))))
 
-(defn- describe-actual [{:keys [failure ::test.check/ret] :as result}]
+(defn- describe-actual [{:keys [failure spec ::test.check/ret] :as result}]
   (let [{:keys [failed-after-ms seed]} ret
         {:keys [args ret]}             (args-and-ret result)]
     {:fail         (list '= ret (describe-fn-call result))
+     :named-args   (named-arguments spec args)
      :return-value ret
      :failed-after (str failed-after-ms "ms")
      :seed         seed
@@ -139,7 +159,7 @@
   (let [fn-name  (name  fn-symbol)
         var-name (symbol (str fn-name "-spec-test"))
         context  (str fn-name " conforms to fspec")
-        expr 'conforms?]
+        expr     'conforms?]
     `(clojure.test/deftest ~var-name
        (binding [*check-options* ~options]
          (clojure.test/testing ~context
