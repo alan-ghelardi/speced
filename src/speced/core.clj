@@ -15,7 +15,7 @@
 
 (defn- alias-for-ns [ns]
   (some-> *check-options*
-          :test-ns
+          ::test-ns
           ns-aliases
           set/map-invert
           (get ns)))
@@ -124,8 +124,8 @@
       {:type :fail :expected expected :actual (describe-actual result)}
       {:type :pass :expected expected :actual true})))
 
-(defn check [fn-symbol]
-  (first (spec.test/check fn-symbol)))
+(defn check [func]
+  (first (spec.test/check (symbol func))))
 
 (declare conforms?)
 
@@ -134,3 +134,17 @@
          result#    (check fn-symbol#)]
      (clojure.test/do-report (assoc (describe-result result#)
                                     :message ~message))))
+
+(defn gen-test* [fn-symbol options]
+  (let [fn-name  (name  fn-symbol)
+        var-name (symbol (str fn-name "-spec-test"))
+        context  (str fn-name " conforms to fspec")
+        expr 'conforms?]
+    `(clojure.test/deftest ~var-name
+       (binding [*check-options* ~options]
+         (clojure.test/testing ~context
+           (clojure.test/is (~expr ~(str fn-symbol))))))))
+
+(defmacro gen-test [fn-under-test]
+  (let [fn-symbol (symbol (ns-resolve *ns* fn-under-test))]
+    (gen-test* fn-symbol {::test-ns *ns*})))

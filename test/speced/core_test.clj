@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [inc])
   (:require [clojure.spec.alpha :as s]
             [clojure.test :refer :all]
-            [speced.core :refer [*check-options* conforms?]]
+            [speced.core :as speced]
             [speced.people :as people]))
 
 (defn ranged-rand
@@ -31,11 +31,4 @@
   :args (s/cat :person string?)
   :ret string?)
 
-(deftest ranged-rand-spec-test
-  (testing "ranged-rand conforms to spec"
-    (is (conforms? `ranged-rand))))
-
-(deftest get-people-spec-test
-  (testing "get-people conforms to spec"
-    (binding [*check-options* (merge *check-options* {:test-ns *ns*})]
-      (is (conforms? `people/get-person)))))
+(speced/gen-test people/get-person)
