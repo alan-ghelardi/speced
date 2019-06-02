@@ -4,7 +4,8 @@
             [clojure.spec.alpha :as s]
             [clojure.spec.test.alpha :as spec.test]
             [clojure.test :as clojure.test]
-            [clojure.walk :as walk])
+            [clojure.walk :as walk]
+            [speced.colors :refer [green red]])
   (:import clojure.lang.Symbol
            java.io.Writer))
 
@@ -87,9 +88,9 @@
 (defn- describe-actual [{:keys [failure spec ::test.check/ret] :as result}]
   (let [{:keys [failed-after-ms seed]} ret
         {:keys [args ret]}             (args-and-ret result)]
-    {:fail         (list '= ret (describe-fn-call result))
-     :named-args   (named-arguments spec args)
-     :return-value ret
+    {:fail         (list '= (red ret) (red (describe-fn-call result)))
+     :args         (named-arguments spec args)
+     :ret          ret
      :failed-after (str failed-after-ms "ms")
      :seed         seed
      :problems     (-> failure ex-data ::s/problems)}))
@@ -135,8 +136,8 @@
   (let [fn-form (if failure
                   (describe-fn-call result)
                   (aliased-fn-symbol sym))]
-    (list 'conforms? (describe-fspec spec)
-          fn-form)))
+    (list 'conforms? (green (describe-fspec spec))
+          (red fn-form))))
 
 (defn describe-result [{:keys [failure] :as result}]
   (let [expected (describe-expected result)]
